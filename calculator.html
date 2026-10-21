@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculator</title>
+<style>
+  :root {
+    --bg: #e9ecef;
+    --body: #ffffff;
+    --screen: #1f2937;
+    --screen-text: #f9fafb;
+    --key: #f3f4f6;
+    --key-text: #111827;
+    --op: #dbeafe;
+    --op-text: #1d4ed8;
+    --accent: #2563eb;
+    --accent-text: #ffffff;
+    --clear: #fee2e2;
+    --clear-text: #b91c1c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111827;
+      --body: #1f2937;
+      --screen: #0b1220;
+      --key: #374151;
+      --key-text: #f9fafb;
+      --op: #1e3a8a;
+      --op-text: #bfdbfe;
+      --clear: #7f1d1d;
+      --clear-text: #fecaca;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .calculator {
+    width: 320px;
+    max-width: 94vw;
+    padding: 16px;
+    background: var(--body);
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+  .screen {
+    background: var(--screen);
+    color: var(--screen-text);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    text-align: right;
+    min-height: 84px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+  .history { font-size: 14px; opacity: 0.6; min-height: 20px; }
+  .current { font-size: 36px; font-weight: 600; word-break: break-all; }
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  button {
+    border: 0;
+    border-radius: 12px;
+    padding: 16px 0;
+    font-size: 20px;
+    cursor: pointer;
+    background: var(--key);
+    color: var(--key-text);
+    transition: transform 0.08s;
+  }
+  button:active { transform: scale(0.95); }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .op { background: var(--op); color: var(--op-text); }
+  .clear { background: var(--clear); color: var(--clear-text); }
+  .equals { background: var(--accent); color: var(--accent-text); }
+  .zero { grid-column: span 2; }
+</style>
+</head>
+<body>
+
+<div class="calculator">
+  <div class="screen">
+    <div class="history" id="history"></div>
+    <div class="current" id="current">0</div>
+  </div>
+  <div class="keys">
+    <button class="clear" data-action="clear">AC</button>
+    <button class="op" data-action="delete">⌫</button>
+    <button class="op" data-action="percent">%</button>
+    <button class="op" data-op="/">÷</button>
+
+    <button data-num="7">7</button>
+    <button data-num="8">8</button>
+    <button data-num="9">9</button>
+    <button class="op" data-op="*">×</button>
+
+    <button data-num="4">4</button>
+    <button data-num="5">5</button>
+    <button data-num="6">6</button>
+    <button class="op" data-op="-">−</button>
+
+    <button data-num="1">1</button>
+    <button data-num="2">2</button>
+    <button data-num="3">3</button>
+    <button class="op" data-op="+">+</button>
+
+    <button class="zero" data-num="0">0</button>
+    <button data-num=".">.</button>
+    <button class="equals" data-action="equals">=</button>
+  </div>
+</div>
+
+<script>
+  const currentEl = document.getElementById("current");
+  const historyEl = document.getElementById("history");
+  const symbols = { "+": "+", "-": "−", "*": "×", "/": "÷" };
+
+  let current = "0";      // number being typed
+  let previous = null;    // first operand
+  let operator = null;    // pending operator
+  let justEvaluated = false;
+
+  function update() {
+    currentEl.textContent = current;
+    historyEl.textContent =
+      previous !== null && operator ? `${previous} ${symbols[operator]}` : "";
+  }
+
+  function inputNumber(n) {
+    if (justEvaluated) { current = "0"; justEvaluated = false; }
+    if (n === "." && current.includes(".")) return;
+    current = current === "0" && n !== "." ? n : current + n;
+  }
+
+  function calculate(a, b, op) {
+    a = parseFloat(a); b = parseFloat(b);
+    switch (op) {
+      case "+": return a + b;
+      case "-": return a - b;
+      case "*": return a * b;
+      case "/": return b === 0 ? "Error" : a / b;
+    }
+  }
+
+  function format(value) {
+    if (value === "Error") return value;
+    return String(parseFloat(value.toPrecision(12)));
+  }
+
+  function chooseOperator(op) {
+    if (current === "Error") return;
+    if (operator && !justEvaluated) {
+      const result = calculate(previous, current, operator);
+      previous = format(result);
+      if (previous === "Error") { current = "Error"; previous = null; operator = null; return; }
+    } else {
+      previous = current;
+    }
+    operator = op;
+    current = "0";
+    justEvaluated = false;
+  }
+
+  function equals() {
+    if (!operator || previous === null) return;
+    const result = format(calculate(previous, current, operator));
+    historyEl.textContent = `${previous} ${symbols[operator]} ${current} =`;
+    current = result;
+    previous = null;
+    operator = null;
+    justEvaluated = true;
+    currentEl.textContent = current;
+  }
+
+  function clearAll() {
+    current = "0"; previous = null; operator = null; justEvaluated = false;
+  }
+
+  function deleteLast() {
+    if (justEvaluated || current === "Error") { clearAll(); return; }
+    current = current.length > 1 ? current.slice(0, -1) : "0";
+  }
+
+  function percent() {
+    if (current === "Error") return;
+    current = format(parseFloat(current) / 100);
+  }
+
+  document.querySelector(".keys").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+
+    if (btn.dataset.num !== undefined) inputNumber(btn.dataset.num);
+    else if (btn.dataset.op) chooseOperator(btn.dataset.op);
+    else if (btn.dataset.action === "equals") { equals(); return; }
+    else if (btn.dataset.action === "clear") clearAll();
+    else if (btn.dataset.action === "delete") deleteLast();
+    else if (btn.dataset.action === "percent") percent();
+
+    update();
+  });
+
+  // Keyboard support
+  document.addEventListener("keydown", (e) => {
+    if (/^[0-9.]$/.test(e.key)) inputNumber(e.key);
+    else if (["+", "-", "*", "/"].includes(e.key)) chooseOperator(e.key);
+    else if (e.key === "Enter" || e.key === "=") { e.preventDefault(); equals(); return; }
+    else if (e.key === "Backspace") deleteLast();
+    else if (e.key === "Escape") clearAll();
+    else if (e.key === "%") percent();
+    else return;
+    update();
+  });
+</script>
+</body>
+</html>
